@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4F7FB"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Panel interno"
+            android:textColor="#0F172A"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtMensajeAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Operaciones internas de verificación, catálogo, cierre y multas."
+            android:textColor="#475569"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/edtAdminUsuarioId"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="22dp"
+            android:background="#FFFFFF"
+            android:hint="ID de usuario a verificar"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <Spinner
+            android:id="@+id/spAdminCategoria"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp" />
+
+        <Button
+            android:id="@+id/btnAdminAprobarUsuario"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#16A34A"
+            android:text="Aprobar usuario y asignar categoría"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnAdminRechazarUsuario"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#DC2626"
+            android:text="Rechazar usuario"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/edtAdminMedioPagoId"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="#FFFFFF"
+            android:hint="ID de medio de pago"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <Button
+            android:id="@+id/btnAdminVerificarMedio"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#2563EB"
+            android:text="Verificar medio de pago"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/edtAdminProductoId"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="#FFFFFF"
+            android:hint="ID de producto/consignación"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <EditText
+            android:id="@+id/edtAdminMotivoRechazo"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="#FFFFFF"
+            android:hint="Motivo de rechazo, si aplica"
+            android:padding="14dp" />
+
+        <Button
+            android:id="@+id/btnAdminAceptarProducto"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#16A34A"
+            android:text="Aceptar consignación"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnAdminRechazarProducto"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#DC2626"
+            android:text="Rechazar consignación"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/edtAdminSubastaId"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="#FFFFFF"
+            android:hint="ID de subasta"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <EditText
+            android:id="@+id/edtAdminPrecioBase"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="#FFFFFF"
+            android:hint="Precio base definido por la empresa"
+            android:inputType="numberDecimal"
+            android:padding="14dp" />
+
+        <EditText
+            android:id="@+id/edtAdminComision"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="#FFFFFF"
+            android:hint="Comisión"
+            android:inputType="numberDecimal"
+            android:padding="14dp" />
+
+        <Button
+            android:id="@+id/btnAdminAsignarProducto"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#2563EB"
+            android:text="Asignar producto a subasta"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/edtAdminItemId"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="#FFFFFF"
+            android:hint="ID de item/lote"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <Button
+            android:id="@+id/btnAdminCerrarItem"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#0F172A"
+            android:text="Cerrar item y generar venta"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/edtAdminClienteMulta"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="#FFFFFF"
+            android:hint="ID de cliente para multa"
+            android:inputType="number"
+            android:padding="14dp" />
+
+        <EditText
+            android:id="@+id/edtAdminMontoMulta"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="#FFFFFF"
+            android:hint="Monto de multa"
+            android:inputType="numberDecimal"
+            android:padding="14dp" />
+
+        <Button
+            android:id="@+id/btnAdminCrearMulta"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#DC2626"
+            android:text="Crear multa por impago"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnVolverAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="#E2E8F0"
+            android:text="Volver"
+            android:textColor="#0F172A"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+</ScrollView>

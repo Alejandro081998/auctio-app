@@ -1,0 +1,622 @@
+openapi: 3.0.3
+
+info:
+  title: API Auct.io - Sistema de Subastas
+  version: 2.0.0
+  description: >
+    API REST para registro KYC en dos pasos, medios de pago, catalogos,
+    pujas, consignacion de articulos, multas e integracion de estado en vivo.
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor local
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Usuarios
+  - name: Subastas
+  - name: Pujas
+  - name: Medios de pago
+  - name: Consignacion
+  - name: Multas
+  - name: Admin
+
+paths:
+  /api/test:
+    get:
+      tags: [Usuarios]
+      summary: Probar conexion con la base
+      security: []
+      responses:
+        "200":
+          description: API conectada
+
+  /api/auth/registro/paso1:
+    post:
+      tags: [Auth]
+      summary: Registro KYC paso 1 sin clave
+      description: El usuario carga datos personales y queda pendiente de verificacion de la empresa.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistroPaso1"
+      responses:
+        "201":
+          description: Solicitud creada
+        "400":
+          description: Faltan datos obligatorios
+        "409":
+          description: Documento ya registrado
+
+  /api/auth/registro/paso2:
+    post:
+      tags: [Auth]
+      summary: Registro KYC paso 2, generacion de clave
+      description: Solo se habilita cuando un admin aprobo al usuario y le asigno categoria.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documento, clave]
+              properties:
+                documento: { type: string, example: "30123456" }
+                clave: { type: string, format: password, example: "Clave1234" }
+      responses:
+        "200":
+          description: Clave generada
+        "403":
+          description: Cuenta pendiente de verificacion
+        "404":
+          description: Usuario no encontrado
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesion
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documento, clave]
+              properties:
+                documento: { type: string, example: "30123456" }
+                clave: { type: string, example: "1234" }
+      responses:
+        "200":
+          description: Login correcto con token Bearer de demo
+        "401":
+          description: Credenciales incorrectas
+        "403":
+          description: Usuario no activo o no admitido
+
+  /api/users/{userId}:
+    get:
+      tags: [Usuarios]
+      summary: Consultar perfil de usuario
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Perfil obtenido
+        "404":
+          description: Usuario no encontrado
+
+  /api/clients/{clientId}/auctions:
+    get:
+      tags: [Subastas]
+      summary: Subastas disponibles para un cliente
+      description: Devuelve puedeVer, puedePujar y motivoBloqueo segun categoria, medios verificados y multas.
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Listado con estado de acceso
+
+  /api/auctions:
+    get:
+      tags: [Subastas]
+      summary: Listar subastas
+      responses:
+        "200":
+          description: Subastas registradas
+
+  /api/auctions/{auctionId}:
+    get:
+      tags: [Subastas]
+      summary: Detalle de subasta
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+      responses:
+        "200":
+          description: Datos de la subasta
+        "404":
+          description: Subasta no encontrada
+
+  /api/auctions/{auctionId}/catalog:
+    get:
+      tags: [Subastas]
+      summary: Catalogo completo de una subasta
+      description: Incluye items, precio base, comision, historia, artista y mejor oferta.
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+      responses:
+        "200":
+          description: Items del catalogo
+
+  /api/auctions/{auctionId}/live-state:
+    get:
+      tags: [Subastas]
+      summary: Estado actual de subasta en vivo
+      description: Incluye item actual, mejor oferta, puja minima, puja maxima, tiempo restante y URL SSE.
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+      responses:
+        "200":
+          description: Estado vivo
+        "404":
+          description: Sin item activo
+
+  /api/auctions/{auctionId}/events:
+    get:
+      tags: [Subastas]
+      summary: Canal SSE de actualizaciones en tiempo real
+      description: Publica eventos live-state cada 5 segundos.
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+      responses:
+        "200":
+          description: Stream text/event-stream
+
+  /api/catalog-items/{itemId}/bids:
+    get:
+      tags: [Pujas]
+      summary: Historial de pujas de un item
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      responses:
+        "200":
+          description: Pujas ordenadas por fecha
+
+  /api/auctions/{auctionId}/items/{itemId}/bids:
+    post:
+      tags: [Pujas]
+      summary: Crear puja sobre un item de una subasta
+      description: >
+        Valida usuario activo, admitido, categoria suficiente, medio de pago verificado,
+        ausencia de multas pendientes, item no vendido y reglas de +1% minimo / +20%
+        maximo sobre precio base. Oro y platino no tienen limite maximo.
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteId, importe]
+              properties:
+                clienteId: { type: integer, example: 1 }
+                importe: { type: number, format: double, example: 12300 }
+      responses:
+        "201":
+          description: Puja registrada
+        "400":
+          description: Monto fuera de reglas
+        "403":
+          description: Cliente no habilitado
+        "409":
+          description: Item vendido
+
+  /api/bids:
+    post:
+      tags: [Pujas]
+      summary: Crear puja, ruta compatible
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteId, subastaId, itemId, importe]
+              properties:
+                clienteId: { type: integer, example: 1 }
+                subastaId: { type: integer, example: 1 }
+                itemId: { type: integer, example: 1 }
+                importe: { type: number, format: double, example: 12300 }
+      responses:
+        "201":
+          description: Puja registrada
+
+  /api/clients/{clientId}/payment-methods:
+    get:
+      tags: [Medios de pago]
+      summary: Listar medios de pago del cliente
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Medios de pago
+    post:
+      tags: [Medios de pago]
+      summary: Agregar medio de pago
+      description: Acepta cuenta bancaria, tarjeta de credito o cheque certificado. Queda pendiente de verificacion.
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MedioPago"
+      responses:
+        "201":
+          description: Medio de pago creado
+        "400":
+          description: Datos invalidos
+
+  /api/products:
+    post:
+      tags: [Consignacion]
+      summary: Solicitar consignacion de articulo
+      description: Requiere declaracion de propiedad, origen licito y minimo 6 fotos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Consignacion"
+      responses:
+        "202":
+          description: Solicitud enviada a revision
+        "400":
+          description: Faltan datos o fotos
+
+  /api/clients/{clientId}/products:
+    get:
+      tags: [Consignacion]
+      summary: Seguimiento de consignaciones del cliente
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Solicitudes propias
+
+  /api/clients/{clientId}/history:
+    get:
+      tags: [Usuarios]
+      summary: Historial y metricas de participacion
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Participaciones del cliente
+
+  /api/clients/{clientId}/purchases:
+    get:
+      tags: [Usuarios]
+      summary: Compras adjudicadas y estado de pago
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Compras del cliente
+
+  /api/purchases/{purchaseId}/pay:
+    post:
+      tags: [Usuarios]
+      summary: Registrar pago de compra adjudicada
+      parameters:
+        - name: purchaseId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medioPagoId: { type: integer, nullable: true }
+                retiroPersonal: { type: string, enum: [si, no], nullable: true }
+      responses:
+        "200":
+          description: Pago registrado
+        "404":
+          description: Compra no encontrada
+
+  /api/clients/{clientId}/fines:
+    get:
+      tags: [Multas]
+      summary: Multas por impago del cliente
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Multas del cliente
+
+  /api/fines/{fineId}/pay:
+    patch:
+      tags: [Multas]
+      summary: Marcar multa como pagada
+      parameters:
+        - name: fineId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Multa pagada
+        "404":
+          description: Multa no encontrada
+    post:
+      tags: [Multas]
+      summary: Marcar multa como pagada, ruta compatible para Android
+      parameters:
+        - name: fineId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Multa pagada
+
+  /api/clients/{clientId}/notifications:
+    get:
+      tags: [Usuarios]
+      summary: Notificaciones privadas del cliente
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Notificaciones
+
+  /api/admin/users/{userId}/verification:
+    patch:
+      tags: [Admin]
+      summary: Aprobar o rechazar usuario y asignar categoria
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [admitido, categoria]
+              properties:
+                admitido: { type: string, enum: [si, no], example: "si" }
+                categoria: { type: string, enum: [comun, especial, plata, oro, platino], example: "plata" }
+                verificador: { type: integer, nullable: true, example: 4 }
+      responses:
+        "200":
+          description: Verificacion actualizada
+
+  /api/admin/users/pending:
+    get:
+      tags: [Admin]
+      summary: Listar usuarios pendientes de verificacion
+      responses:
+        "200":
+          description: Usuarios pendientes
+
+  /api/admin/payment-methods/pending:
+    get:
+      tags: [Admin, Medios de pago]
+      summary: Listar medios de pago pendientes de verificacion
+      responses:
+        "200":
+          description: Medios pendientes
+
+  /api/admin/payment-methods/{paymentMethodId}/verification:
+    patch:
+      tags: [Admin, Medios de pago]
+      summary: Verificar o rechazar medio de pago
+      parameters:
+        - name: paymentMethodId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verificado]
+              properties:
+                verificado: { type: string, enum: [si, no], example: "si" }
+      responses:
+        "200":
+          description: Verificacion actualizada
+
+  /api/admin/products/pending:
+    get:
+      tags: [Admin, Consignacion]
+      summary: Listar consignaciones pendientes
+      responses:
+        "200":
+          description: Productos pendientes
+
+  /api/admin/products/{productId}/review:
+    patch:
+      tags: [Admin]
+      summary: Revisar consignacion
+      description: Acepta o rechaza el bien, permite informar deposito, seguro y motivo de rechazo.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estadoAprobacion]
+              properties:
+                estadoAprobacion: { type: string, enum: [aceptado, rechazado], example: "aceptado" }
+                motivoRechazo: { type: string, nullable: true }
+                ubicacionDeposito: { type: string, nullable: true, example: "Deposito A - Estante 3" }
+                seguro: { type: string, nullable: true, example: "POL-ALE-001" }
+                revisor: { type: integer, nullable: true, example: 4 }
+      responses:
+        "200":
+          description: Revision actualizada
+
+  /api/admin/auctions/{auctionId}/items:
+    post:
+      tags: [Admin, Subastas]
+      summary: Asignar producto aceptado a una subasta
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, precioBase, comision]
+              properties:
+                productId: { type: integer, example: 3 }
+                precioBase: { type: number, example: 10000 }
+                comision: { type: number, example: 1200 }
+                responsable: { type: integer, nullable: true }
+      responses:
+        "201":
+          description: Producto asignado
+
+  /api/admin/auctions/{auctionId}/items/{itemId}/close:
+    post:
+      tags: [Admin, Subastas]
+      summary: Cerrar item, adjudicar ganador y generar venta
+      parameters:
+        - $ref: "#/components/parameters/AuctionId"
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medioPagoId: { type: integer, nullable: true }
+                costoEnvio: { type: number, nullable: true }
+                retiroPersonal: { type: string, enum: [si, no], nullable: true }
+      responses:
+        "201":
+          description: Venta generada
+        "200":
+          description: Item cerrado sin pujas
+
+  /api/admin/fines:
+    post:
+      tags: [Admin, Multas]
+      summary: Registrar multa por impago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteId, subastaId, monto]
+              properties:
+                clienteId: { type: integer, example: 3 }
+                subastaId: { type: integer, example: 1 }
+                monto: { type: number, format: double, example: 1500 }
+      responses:
+        "201":
+          description: Multa creada
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: integer }
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      schema: { type: integer }
+    AuctionId:
+      name: auctionId
+      in: path
+      required: true
+      schema: { type: integer }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: integer }
+
+  schemas:
+    RegistroPaso1:
+      type: object
+      required: [documento, nombre, apellido, direccion, fotoDniFrente, fotoDniDorso]
+      properties:
+        documento: { type: string, example: "35123456" }
+        nombre: { type: string, example: "Monica" }
+        apellido: { type: string, example: "Perez" }
+        email: { type: string, nullable: true, example: "monica@test.com" }
+        telefono: { type: string, nullable: true, example: "1155559999" }
+        direccion: { type: string, example: "Av. Cabildo 1234, CABA" }
+        numeroPais: { type: integer, nullable: true, example: 32 }
+        fotoDniFrente: { type: string, format: byte, example: "base64..." }
+        fotoDniDorso: { type: string, format: byte, example: "base64..." }
+
+    MedioPago:
+      type: object
+      required: [tipo, entidad, numeroReferencia]
+      properties:
+        tipo:
+          type: string
+          enum: [cuenta_bancaria, tarjeta_credito, cheque_certificado]
+          example: "tarjeta_credito"
+        entidad: { type: string, example: "Visa" }
+        numeroReferencia: { type: string, example: "**** **** **** 1234" }
+        esExtranjera: { type: string, enum: [si, no], example: "no" }
+        moneda: { type: string, enum: [pesos, dolares], example: "pesos" }
+        montoCheque: { type: number, nullable: true, example: 200000 }
+
+    Consignacion:
+      type: object
+      required: [duenio, descripcionCatalogo, descripcionCompleta, declaracionPropiedad, origenLicito, fotos]
+      properties:
+        duenio: { type: integer, example: 1 }
+        descripcionCatalogo: { type: string, example: "Reloj antiguo de coleccion" }
+        descripcionCompleta: { type: string, example: "Reloj de coleccion en excelente estado" }
+        historia: { type: string, nullable: true, example: "Pieza familiar conservada desde 1950" }
+        artistaDiseniador: { type: string, nullable: true, example: "Sin identificar" }
+        fechaObjeto: { type: string, format: date, nullable: true, example: "1950-01-01" }
+        precioBaseSugerido: { type: number, nullable: true, example: 10000 }
+        declaracionPropiedad: { type: string, enum: [si], example: "si" }
+        origenLicito: { type: string, enum: [si], example: "si" }
+        fotos:
+          type: array
+          minItems: 6
+          items:
+            type: string
+            format: byte
+          example: ["base64foto1", "base64foto2", "base64foto3", "base64foto4", "base64foto5", "base64foto6"]
