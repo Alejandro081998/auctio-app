@@ -44,8 +44,10 @@ public class ProductRequestActivity extends AppCompatActivity {
     private CheckBox chkPropiedad;
     private CheckBox chkOrigenLicito;
     private TextView txtMensajeSolicitud;
+    private TextView txtMisSolicitudes;
     private Button btnEnviarSolicitud;
     private Button btnVolverSolicitud;
+    private Button btnActualizarMisSolicitudes;
 
     private int userId;
 
@@ -65,8 +67,10 @@ public class ProductRequestActivity extends AppCompatActivity {
         chkPropiedad = findViewById(R.id.chkPropiedad);
         chkOrigenLicito = findViewById(R.id.chkOrigenLicito);
         txtMensajeSolicitud = findViewById(R.id.txtMensajeSolicitud);
+        txtMisSolicitudes = findViewById(R.id.txtMisSolicitudes);
         btnEnviarSolicitud = findViewById(R.id.btnEnviarSolicitud);
         btnVolverSolicitud = findViewById(R.id.btnVolverSolicitud);
+        btnActualizarMisSolicitudes = findViewById(R.id.btnActualizarMisSolicitudes);
 
         fotosBase64 = new String[TOTAL_FOTOS_REQUERIDAS];
         txtFotos = new TextView[]{
@@ -97,6 +101,81 @@ public class ProductRequestActivity extends AppCompatActivity {
 
         btnEnviarSolicitud.setOnClickListener(v -> validarYEnviarSolicitud());
         btnVolverSolicitud.setOnClickListener(v -> finish());
+        btnActualizarMisSolicitudes.setOnClickListener(v -> cargarMisSolicitudes());
+        cargarMisSolicitudes();
+    }
+
+    private void cargarMisSolicitudes() {
+        txtMisSolicitudes.setText("Cargando mis consignaciones...");
+
+        executor.execute(() -> {
+            HttpURLConnection connection = null;
+
+            try {
+                URL url = new URL(ApiConfig.BASE_URL + "/api/clients/" + userId + "/products");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("Accept", "application/json");
+
+                int statusCode = connection.getResponseCode();
+                InputStream inputStream = statusCode >= 200 && statusCode < 300
+                        ? connection.getInputStream()
+                        : connection.getErrorStream();
+
+                String respuesta = leerRespuesta(inputStream);
+                if (statusCode == 200) {
+                    JSONArray solicitudes = new JSONArray(respuesta);
+                    mainHandler.post(() -> mostrarMisSolicitudes(solicitudes));
+                } else {
+                    JSONObject error = new JSONObject(respuesta);
+                    mainHandler.post(() -> txtMisSolicitudes.setText(error.optString("error", "No se pudieron cargar las consignaciones.")));
+                }
+            } catch (Exception e) {
+                mainHandler.post(() -> txtMisSolicitudes.setText("No se pudo conectar con el servidor."));
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        });
+    }
+
+    private void mostrarMisSolicitudes(JSONArray solicitudes) {
+        if (solicitudes.length() == 0) {
+            txtMisSolicitudes.setText("No tenes consignaciones cargadas.");
+            return;
+        }
+
+        try {
+            StringBuilder builder = new StringBuilder();
+            builder.append("Mis consignaciones\n");
+
+            for (int i = 0; i < solicitudes.length(); i++) {
+                JSONObject item = solicitudes.getJSONObject(i);
+                builder
+                        .append("#")
+                        .append(item.optInt("id", 0))
+                        .append(" - ")
+                        .append(item.optString("descripcionCatalogo", "-"))
+                        .append("\nEstado: ")
+                        .append(item.optString("estadoAprobacion", "-"))
+                        .append("\nUbicacion: ")
+                        .append(item.optString("ubicacionDeposito", "-"))
+                        .append("\nSeguro: ")
+                        .append(item.optString("seguro", "-"));
+
+                String motivoRechazo = item.optString("motivoRechazo", "");
+                if (!motivoRechazo.isEmpty() && !"null".equals(motivoRechazo)) {
+                    builder.append("\nMotivo rechazo: ").append(motivoRechazo);
+                }
+
+                builder.append("\n\n");
+            }
+
+            txtMisSolicitudes.setText(builder.toString());
+        } catch (Exception e) {
+            txtMisSolicitudes.setText("Error mostrando mis consignaciones.");
+        }
     }
 
     private void seleccionarFoto(int indice) {
@@ -259,6 +338,7 @@ public class ProductRequestActivity extends AppCompatActivity {
                         txtMensajeSolicitud.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                         txtMensajeSolicitud.setText(mensaje);
                         limpiarFormulario();
+                        cargarMisSolicitudes();
                     });
                 } else {
                     String error = json.optString("error", "No se pudo enviar la solicitud");

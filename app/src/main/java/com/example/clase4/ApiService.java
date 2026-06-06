@@ -23,9 +23,9 @@ public interface ApiService {
             @Part MultipartBody.Part dniDorso
     );
 
-    @POST("auth/registro/paso1")
+    @POST("api/auth/registro/paso1")
     Call<ResponseBody> registroPaso1(@Body RegistroRequest request);
 
-    @POST("auth/registro/paso2")
+    @POST("api/auth/registro/paso2")
     Call<ResponseBody> registroPaso2(@Body RegistroPaso2Request request);
 }

@@ -1,11 +1,15 @@
 package com.example.clase4;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
@@ -30,7 +34,7 @@ public class RegistroActivity extends AppCompatActivity {
     private EditText etDireccion;
     private EditText etEmail;
     private EditText etTelefono;
-    private EditText etPais;
+    private Spinner etPais;
     private EditText etDocumentoPaso2;
     private EditText etClavePaso2;
     private TextView txtDniFrente;
@@ -68,6 +72,8 @@ public class RegistroActivity extends AppCompatActivity {
         btnRegistrar = findViewById(R.id.btnRegistrar);
         btnCompletarRegistro = findViewById(R.id.btnCompletarRegistro);
 
+        configurarPaises();
+
         String documentoPendiente = getIntent().getStringExtra("documento");
         if (documentoPendiente != null) {
             etDocumentoPaso2.setText(documentoPendiente);
@@ -77,6 +83,14 @@ public class RegistroActivity extends AppCompatActivity {
         btnSeleccionarDniDorso.setOnClickListener(v -> seleccionarImagen(REQ_DNI_DORSO));
         btnRegistrar.setOnClickListener(v -> enviarPaso1());
         btnCompletarRegistro.setOnClickListener(v -> enviarPaso2());
+    }
+
+    private void configurarPaises() {
+        etPais.setAdapter(new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"Argentina", "Estados Unidos"}
+        ));
     }
 
     private void seleccionarImagen(int requestCode) {
@@ -107,25 +121,45 @@ public class RegistroActivity extends AppCompatActivity {
                 txtDniDorso.setText("Dorso seleccionado");
             }
         } catch (Exception e) {
-            txtMensajeRegistro.setText("No se pudo leer la imagen seleccionada.");
+            mostrarErrorRegistro("No se pudo leer la imagen seleccionada.");
         }
     }
 
     private String leerImagenBase64(Uri uri) throws Exception {
         InputStream inputStream = getContentResolver().openInputStream(uri);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-
-        while (inputStream != null && (bytesRead = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, bytesRead);
-        }
-
+        Bitmap original = BitmapFactory.decodeStream(inputStream);
         if (inputStream != null) {
             inputStream.close();
         }
 
+        if (original == null) {
+            throw new IllegalArgumentException("No se pudo decodificar la imagen");
+        }
+
+        Bitmap bitmap = redimensionarBitmap(original, 1280);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream);
+
+        if (bitmap != original) {
+            original.recycle();
+        }
+
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
+    }
+
+    private Bitmap redimensionarBitmap(Bitmap original, int maxSize) {
+        int width = original.getWidth();
+        int height = original.getHeight();
+
+        if (width <= maxSize && height <= maxSize) {
+            return original;
+        }
+
+        float ratio = Math.min((float) maxSize / width, (float) maxSize / height);
+        int newWidth = Math.round(width * ratio);
+        int newHeight = Math.round(height * ratio);
+
+        return Bitmap.createScaledBitmap(original, newWidth, newHeight, true);
     }
 
     private void enviarPaso1() {
@@ -135,27 +169,18 @@ public class RegistroActivity extends AppCompatActivity {
         String direccion = etDireccion.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String telefono = etTelefono.getText().toString().trim();
-        String paisTexto = etPais.getText().toString().trim();
 
         if (documento.isEmpty() || nombre.isEmpty() || apellido.isEmpty() || direccion.isEmpty()) {
-            txtMensajeRegistro.setText("Completá documento, nombre, apellido y domicilio legal.");
+            mostrarErrorRegistro("Completa documento, nombre, apellido y domicilio legal.");
             return;
         }
 
         if (fotoDniFrenteBase64 == null || fotoDniDorsoBase64 == null) {
-            txtMensajeRegistro.setText("Seleccioná frente y dorso del DNI.");
+            mostrarErrorRegistro("Selecciona frente y dorso del DNI.");
             return;
         }
 
-        Integer numeroPais = null;
-        if (!paisTexto.isEmpty()) {
-            try {
-                numeroPais = Integer.parseInt(paisTexto);
-            } catch (Exception e) {
-                txtMensajeRegistro.setText("El código de país debe ser numérico.");
-                return;
-            }
-        }
+        Integer numeroPais = etPais.getSelectedItemPosition() == 1 ? 840 : 32;
 
         btnRegistrar.setEnabled(false);
         btnRegistrar.setText("Enviando...");
@@ -185,9 +210,9 @@ public class RegistroActivity extends AppCompatActivity {
                     startActivity(intent);
                     finish();
                 } else if (response.code() == 409) {
-                    txtMensajeRegistro.setText("Ya existe una solicitud con ese documento.");
+                    mostrarErrorRegistro("Ya existe una solicitud con ese documento.");
                 } else {
-                    txtMensajeRegistro.setText("No se pudo enviar la solicitud. Revisá los datos.");
+                    mostrarErrorRegistro(mensajeErrorRegistro(response));
                 }
             }
 
@@ -195,9 +220,22 @@ public class RegistroActivity extends AppCompatActivity {
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 btnRegistrar.setEnabled(true);
                 btnRegistrar.setText("Enviar solicitud");
-                txtMensajeRegistro.setText("No se pudo conectar con el servidor.");
+                mostrarErrorRegistro("No se pudo conectar con el servidor. Revisa que el celular este en la misma red que la computadora y que el backend este encendido.");
             }
         });
+    }
+
+    private String mensajeErrorRegistro(Response<ResponseBody> response) {
+        String detalle = "No se pudo enviar la solicitud. Codigo: " + response.code();
+
+        try {
+            if (response.errorBody() != null) {
+                detalle += " - " + response.errorBody().string();
+            }
+        } catch (Exception ignored) {
+        }
+
+        return detalle;
     }
 
     private void enviarPaso2() {
@@ -205,7 +243,7 @@ public class RegistroActivity extends AppCompatActivity {
         String clave = etClavePaso2.getText().toString().trim();
 
         if (documento.isEmpty() || clave.isEmpty()) {
-            txtMensajePaso2.setText("Ingresá documento y clave.");
+            mostrarErrorPaso2("Ingresa documento y clave.");
             return;
         }
 
@@ -222,13 +260,14 @@ public class RegistroActivity extends AppCompatActivity {
                 btnCompletarRegistro.setText("Generar clave");
 
                 if (response.isSuccessful()) {
-                    txtMensajePaso2.setText("Clave generada. Ya podés iniciar sesión.");
+                    txtMensajePaso2.setText("Clave generada. Ya podes iniciar sesion.");
+                    FeedbackDialog.ok(RegistroActivity.this, "Clave generada. Ya podes iniciar sesion.");
                     startActivity(new Intent(RegistroActivity.this, LoginActivity.class));
                     finish();
                 } else if (response.code() == 403) {
-                    txtMensajePaso2.setText("La empresa todavía no aprobó esta cuenta.");
+                    mostrarErrorPaso2("La empresa todavia no aprobo esta cuenta.");
                 } else {
-                    txtMensajePaso2.setText("No se pudo generar la clave.");
+                    mostrarErrorPaso2("No se pudo generar la clave.");
                 }
             }
 
@@ -236,8 +275,18 @@ public class RegistroActivity extends AppCompatActivity {
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 btnCompletarRegistro.setEnabled(true);
                 btnCompletarRegistro.setText("Generar clave");
-                txtMensajePaso2.setText("No se pudo conectar con el servidor.");
+                mostrarErrorPaso2("No se pudo conectar con el servidor.");
             }
         });
+    }
+
+    private void mostrarErrorRegistro(String mensaje) {
+        txtMensajeRegistro.setText(mensaje);
+        FeedbackDialog.error(this, mensaje);
+    }
+
+    private void mostrarErrorPaso2(String mensaje) {
+        txtMensajePaso2.setText(mensaje);
+        FeedbackDialog.error(this, mensaje);
     }
 }

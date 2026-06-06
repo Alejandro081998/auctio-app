@@ -67,4 +67,28 @@ El proyecto sigue estrictamente el manual de marca definido en la documentación
 * **Seguridad:** Se utiliza cifrado para las transacciones de subastas de alto valor.
 
 ---
+
+## Segunda entrega - circuito integrado
+
+Para defender la segunda entrega, usar el flujo documentado en:
+
+* `docs/Segunda_Entrega_Flujo_Demo.md`
+
+Circuito recomendado:
+
+1. Registro KYC de usuario.
+2. Aprobacion interna desde panel admin.
+3. Login de cliente.
+4. Carga de medio de pago.
+5. Verificacion interna del medio.
+6. Ingreso a subasta disponible.
+7. Visualizacion de catalogo con imagen del lote.
+8. Puja validada por frontend y backend.
+
+Usuarios de prueba principales:
+
+* Cliente: `30123456` / `1234`
+* Admin: `20000111` / `1234`
+
+---
 **Desarrollado por:** Lucio Leonardo Tedeschi Pontiroli

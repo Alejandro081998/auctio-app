@@ -124,14 +124,18 @@ public class LoginActivity extends AppCompatActivity {
                     String nombre = usuario.getString("nombre");
                     String apellido = usuario.getString("apellido");
                     String categoria = usuario.getString("categoria");
+                    String token = json.optString("token", "");
+                    boolean esAdmin = usuario.optInt("esAdmin", 0) == 1 || usuario.optBoolean("esAdmin", false);
 
-                    guardarSesion(userId, nombre, apellido, categoria);
+                    guardarSesion(userId, nombre, apellido, categoria, token, esAdmin);
 
                     mainHandler.post(() -> {
                         btnIngresar.setEnabled(true);
                         btnIngresar.setText("Ingresar");
 
-                        Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
+                        Intent intent = esAdmin
+                                ? new Intent(LoginActivity.this, AdminActivity.class)
+                                : new Intent(LoginActivity.this, HomeActivity.class);
                         startActivity(intent);
                         finish();
                     });
@@ -172,7 +176,7 @@ public class LoginActivity extends AppCompatActivity {
         return respuesta.toString();
     }
 
-    private void guardarSesion(int userId, String nombre, String apellido, String categoria) {
+    private void guardarSesion(int userId, String nombre, String apellido, String categoria, String token, boolean esAdmin) {
         SharedPreferences preferences = getSharedPreferences("sesion", MODE_PRIVATE);
 
         preferences.edit()
@@ -180,6 +184,8 @@ public class LoginActivity extends AppCompatActivity {
                 .putString("nombre", nombre)
                 .putString("apellido", apellido)
                 .putString("categoria", categoria)
+                .putString("token", token)
+                .putBoolean("esAdmin", esAdmin)
                 .apply();
     }
 }

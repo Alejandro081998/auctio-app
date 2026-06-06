@@ -23,10 +23,13 @@ public class SplashActivity extends AppCompatActivity {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             SharedPreferences preferences = getSharedPreferences("sesion", MODE_PRIVATE);
             int userId = preferences.getInt("userId", 0);
+            boolean esAdmin = preferences.getBoolean("esAdmin", false);
 
             Intent intent;
 
-            if (userId > 0) {
+            if (userId > 0 && esAdmin) {
+                intent = new Intent(SplashActivity.this, AdminActivity.class);
+            } else if (userId > 0) {
                 intent = new Intent(SplashActivity.this, HomeActivity.class);
             } else {
                 intent = new Intent(SplashActivity.this, LoginActivity.class);

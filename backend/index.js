@@ -5,7 +5,7 @@ const { poolPromise, sql } = require("./db");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 app.use((req, res, next) => {
   const override = req.header("X-HTTP-Method-Override");
   if (req.method === "POST" && override) {
@@ -37,6 +37,7 @@ function crearTokenDemo(usuario) {
     sub: usuario.id,
     documento: usuario.documento,
     categoria: usuario.categoria,
+    rol: usuario.esAdmin ? "empleado" : "cliente",
     iat: new Date().toISOString(),
   };
 
@@ -45,6 +46,56 @@ function crearTokenDemo(usuario) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
+}
+
+function decodificarTokenDemo(token) {
+  try {
+    const base64 = String(token || "").replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch (err) {
+    return null;
+  }
+}
+
+async function requireEmployee(req, res, next) {
+  try {
+    const authHeader = req.header("Authorization") || "";
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) {
+      return res.status(401).json({ error: "Debe enviar token Bearer" });
+    }
+
+    const payload = decodificarTokenDemo(token);
+    if (!payload || !payload.sub) {
+      return res.status(401).json({ error: "Token invalido" });
+    }
+
+    const pool = await poolPromise;
+    const empleadoResult = await pool
+      .request()
+      .input("userId", sql.Int, payload.sub)
+      .query(`
+        SELECT e.identificador
+        FROM Employees e
+        INNER JOIN Users u
+          ON e.identificador = u.identificador
+        WHERE e.identificador = @userId
+          AND u.estado = 'activo'
+      `);
+
+    if (empleadoResult.recordset.length === 0) {
+      return res.status(403).json({
+        error: "Solo personal interno puede realizar esta operacion",
+      });
+    }
+
+    req.usuario = payload;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 function calcularLimitesPuja(precioBase, mayorOferta, categoria) {
@@ -254,7 +305,18 @@ app.post("/api/auth/registro/paso1", async (req, res) => {
 
     const userId = insertUser.recordset[0].identificador;
     const paisNumerico = Number(numeroPais);
-    const pais = Number.isInteger(paisNumerico) ? paisNumerico : null;
+    let pais = Number.isInteger(paisNumerico) ? paisNumerico : null;
+
+    if (pais !== null) {
+      const paisResult = await pool
+        .request()
+        .input("numeroPais", sql.Int, pais)
+        .query("SELECT numero FROM Countries WHERE numero = @numeroPais");
+
+      if (paisResult.recordset.length === 0) {
+        pais = null;
+      }
+    }
 
     await pool
       .request()
@@ -359,7 +421,7 @@ app.post("/api/auth/registro/paso2", async (req, res) => {
   }
 });
 
-app.patch("/api/admin/users/:userId/verification", async (req, res) => {
+app.patch("/api/admin/users/:userId/verification", requireEmployee, async (req, res) => {
   try {
     const { admitido, categoria, verificador } = req.body;
     const admitidoNormalizado = normalizarSiNo(admitido);
@@ -418,7 +480,7 @@ app.patch("/api/admin/users/:userId/verification", async (req, res) => {
   }
 });
 
-app.get("/api/admin/users/pending", async (req, res) => {
+app.get("/api/admin/users/pending", requireEmployee, async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -429,6 +491,8 @@ app.get("/api/admin/users/pending", async (req, res) => {
         u.apellido,
         u.email,
         u.direccion,
+        CAST('' AS XML).value('xs:base64Binary(sql:column("u.fotoDniFrente"))', 'VARCHAR(MAX)') AS fotoDniFrenteBase64,
+        CAST('' AS XML).value('xs:base64Binary(sql:column("u.fotoDniDorso"))', 'VARCHAR(MAX)') AS fotoDniDorsoBase64,
         c.categoria,
         c.admitido
       FROM Users u
@@ -471,11 +535,14 @@ app.post("/api/auth/login", async (req, res) => {
           u.apellido,
           u.email,
           u.estado,
-          c.admitido,
-          c.categoria
+          ISNULL(c.admitido, 'no') AS admitido,
+          ISNULL(c.categoria, 'interno') AS categoria,
+          CASE WHEN e.identificador IS NULL THEN 0 ELSE 1 END AS esAdmin
         FROM Users u
-        INNER JOIN Clients c
+        LEFT JOIN Clients c
           ON u.identificador = c.identificador
+        LEFT JOIN Employees e
+          ON u.identificador = e.identificador
         WHERE u.documento = @documento
           AND u.clave = @clave
       `);
@@ -494,7 +561,7 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    if (usuario.admitido !== "si") {
+    if (!usuario.esAdmin && usuario.admitido !== "si") {
       return res.status(403).json({
         error: "El usuario todavia no fue admitido para participar",
       });
@@ -534,11 +601,14 @@ app.get("/api/users/:userId", async (req, res) => {
           u.telefono,
           u.direccion,
           u.estado,
-          c.admitido,
-          c.categoria
+          ISNULL(c.admitido, 'no') AS admitido,
+          ISNULL(c.categoria, 'interno') AS categoria,
+          CASE WHEN e.identificador IS NULL THEN 0 ELSE 1 END AS esAdmin
         FROM Users u
         LEFT JOIN Clients c
           ON u.identificador = c.identificador
+        LEFT JOIN Employees e
+          ON u.identificador = e.identificador
         WHERE u.identificador = @userId
       `);
 
@@ -797,6 +867,12 @@ app.get("/api/auctions/:auctionId/catalog", async (req, res) => {
           p.historia,
           p.artistaDiseniador,
           p.fechaObjeto,
+          (
+            SELECT TOP 1 ph.identificador
+            FROM Photos ph
+            WHERE ph.producto = p.identificador
+            ORDER BY ph.orden, ph.identificador
+          ) AS fotoPrincipalId,
           ci.precioBase,
           ci.comision,
           ci.subastado,
@@ -823,6 +899,30 @@ app.get("/api/auctions/:auctionId/catalog", async (req, res) => {
           ci.subastado,
           ci.vendido
         ORDER BY ci.identificador
+      `);
+
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+app.get("/api/products/:productId/photos", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("productId", sql.Int, req.params.productId)
+      .query(`
+        SELECT
+          identificador AS id,
+          orden,
+          CAST('' AS XML).value('xs:base64Binary(sql:column("foto"))', 'VARCHAR(MAX)') AS fotoBase64
+        FROM Photos
+        WHERE producto = @productId
+        ORDER BY orden, identificador
       `);
 
     res.status(200).json(result.recordset);
@@ -1021,6 +1121,39 @@ async function crearPuja(req, res) {
       });
     }
 
+    const medioCompatibleResult = await pool
+      .request()
+      .input("clienteId", sql.Int, clienteId)
+      .input("moneda", sql.VarChar, item.moneda)
+      .query(`
+        SELECT
+          COUNT(*) AS compatibles,
+          SUM(CASE
+            WHEN tipo = 'cheque_certificado'
+              THEN ISNULL(montoDisponible, 0)
+            ELSE 0
+          END) AS garantiaDisponible
+        FROM PaymentMethods
+        WHERE cliente = @clienteId
+          AND verificado = 'si'
+          AND moneda = @moneda
+          AND (
+            @moneda = 'pesos'
+            OR tipo = 'cuenta_bancaria'
+            OR (tipo = 'tarjeta_credito' AND esExtranjera = 'si')
+            OR tipo = 'cheque_certificado'
+          )
+      `);
+
+    const mediosCompatibles = Number(medioCompatibleResult.recordset[0].compatibles || 0);
+    const garantiaDisponible = Number(medioCompatibleResult.recordset[0].garantiaDisponible || 0);
+
+    if (mediosCompatibles <= 0) {
+      return res.status(403).json({
+        error: "El cliente no posee un medio de pago verificado compatible con la moneda de la subasta",
+      });
+    }
+
     const maxBidResult = await pool
       .request()
       .input("itemId", sql.Int, itemId)
@@ -1034,6 +1167,12 @@ async function crearPuja(req, res) {
     const precioBase = Number(item.precioBase);
     const importeNumerico = Number(importe);
     const valorReferencia = mayorOferta > 0 ? mayorOferta : precioBase;
+
+    if (garantiaDisponible > 0 && importeNumerico > garantiaDisponible) {
+      return res.status(403).json({
+        error: `La puja supera la garantia disponible por cheque certificado (${garantiaDisponible.toFixed(2)})`,
+      });
+    }
 
     if (importeNumerico <= valorReferencia) {
       return res.status(400).json({
@@ -1270,7 +1409,7 @@ app.post("/api/clients/:clientId/payment-methods", async (req, res) => {
   }
 });
 
-app.get("/api/admin/payment-methods/pending", async (req, res) => {
+app.get("/api/admin/payment-methods/pending", requireEmployee, async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -1290,6 +1429,7 @@ app.get("/api/admin/payment-methods/pending", async (req, res) => {
       INNER JOIN Users u
         ON pm.cliente = u.identificador
       WHERE pm.verificado = 'no'
+        AND ISNULL(pm.numeroReferencia, '') NOT LIKE 'RECHAZADO:%'
       ORDER BY pm.fechaAlta DESC
     `);
 
@@ -1301,20 +1441,30 @@ app.get("/api/admin/payment-methods/pending", async (req, res) => {
   }
 });
 
-app.patch("/api/admin/payment-methods/:paymentMethodId/verification", async (req, res) => {
+app.patch("/api/admin/payment-methods/:paymentMethodId/verification", requireEmployee, async (req, res) => {
   try {
-    const { verificado } = req.body;
+    const { verificado, rechazado, motivoRechazo } = req.body;
     const verificadoNormalizado = normalizarSiNo(verificado);
+    const estaRechazado = rechazado === true || rechazado === "si";
+    const motivo = motivoRechazo || "Rechazado desde panel interno";
     const pool = await poolPromise;
 
     const result = await pool
       .request()
       .input("paymentMethodId", sql.Int, req.params.paymentMethodId)
       .input("verificado", sql.VarChar, verificadoNormalizado)
+      .input("motivoRechazo", sql.VarChar, motivo)
+      .input("estaRechazado", sql.Bit, estaRechazado ? 1 : 0)
       .query(`
         UPDATE PaymentMethods
-        SET verificado = @verificado
-        OUTPUT INSERTED.identificador AS id, INSERTED.verificado
+        SET
+          verificado = @verificado,
+          numeroReferencia = CASE
+            WHEN @estaRechazado = 1 AND ISNULL(numeroReferencia, '') NOT LIKE 'RECHAZADO:%'
+              THEN LEFT('RECHAZADO: ' + @motivoRechazo + ' | ' + ISNULL(numeroReferencia, ''), 150)
+            ELSE numeroReferencia
+          END
+        OUTPUT INSERTED.identificador AS id, INSERTED.verificado, INSERTED.numeroReferencia
         WHERE identificador = @paymentMethodId
       `);
 
@@ -1325,7 +1475,9 @@ app.patch("/api/admin/payment-methods/:paymentMethodId/verification", async (req
     }
 
     res.status(200).json({
-      mensaje: "Verificacion de medio de pago actualizada",
+      mensaje: estaRechazado
+        ? "Medio de pago rechazado. Ya no figura como pendiente."
+        : "Medio de pago verificado y habilitado para pujar.",
       medioPago: result.recordset[0],
     });
   } catch (err) {
@@ -1510,7 +1662,7 @@ app.get("/api/clients/:clientId/products", async (req, res) => {
   }
 });
 
-app.get("/api/admin/products/pending", async (req, res) => {
+app.get("/api/admin/products/pending", requireEmployee, async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -1521,6 +1673,7 @@ app.get("/api/admin/products/pending", async (req, res) => {
         p.estadoAprobacion,
         p.duenio,
         u.nombre + ' ' + u.apellido AS duenioNombre,
+        p.fechaAlta,
         COUNT(ph.identificador) AS fotos
       FROM Products p
       INNER JOIN Users u
@@ -1535,7 +1688,8 @@ app.get("/api/admin/products/pending", async (req, res) => {
         p.estadoAprobacion,
         p.duenio,
         u.nombre,
-        u.apellido
+        u.apellido,
+        p.fechaAlta
       ORDER BY p.fechaAlta DESC
     `);
 
@@ -1547,7 +1701,7 @@ app.get("/api/admin/products/pending", async (req, res) => {
   }
 });
 
-app.patch("/api/admin/products/:productId/review", async (req, res) => {
+app.patch("/api/admin/products/:productId/review", requireEmployee, async (req, res) => {
   try {
     const {
       estadoAprobacion,
@@ -1615,7 +1769,7 @@ app.patch("/api/admin/products/:productId/review", async (req, res) => {
   }
 });
 
-app.post("/api/admin/auctions/:auctionId/items", async (req, res) => {
+app.post("/api/admin/auctions/:auctionId/items", requireEmployee, async (req, res) => {
   try {
     const { productId, precioBase, comision, responsable } = req.body;
     const precioBaseNumerico = Number(precioBase);
@@ -1715,7 +1869,7 @@ app.post("/api/admin/auctions/:auctionId/items", async (req, res) => {
   }
 });
 
-app.post("/api/admin/auctions/:auctionId/items/:itemId/close", async (req, res) => {
+app.post("/api/admin/auctions/:auctionId/items/:itemId/close", requireEmployee, async (req, res) => {
   try {
     const { medioPagoId, costoEnvio, retiroPersonal } = req.body;
     const pool = await poolPromise;
@@ -1730,11 +1884,14 @@ app.post("/api/admin/auctions/:auctionId/items/:itemId/close", async (req, res) 
           ci.precioBase,
           ci.comision,
           ci.vendido,
+          a.moneda,
           p.identificador AS productoId,
           p.duenio
         FROM CatalogItems ci
         INNER JOIN Catalogs c
           ON ci.catalogo = c.identificador
+        INNER JOIN Auctions a
+          ON c.subasta = a.identificador
         INNER JOIN Products p
           ON ci.producto = p.identificador
         WHERE ci.identificador = @itemId
@@ -1795,17 +1952,31 @@ app.post("/api/admin/auctions/:auctionId/items/:itemId/close", async (req, res) 
       const medioResult = await pool
         .request()
         .input("cliente", sql.Int, ganador.cliente)
+        .input("moneda", sql.VarChar, item.moneda)
         .query(`
           SELECT TOP 1 identificador
           FROM PaymentMethods
           WHERE cliente = @cliente
             AND verificado = 'si'
+            AND moneda = @moneda
+            AND (
+              @moneda = 'pesos'
+              OR tipo = 'cuenta_bancaria'
+              OR (tipo = 'tarjeta_credito' AND esExtranjera = 'si')
+              OR tipo = 'cheque_certificado'
+            )
           ORDER BY identificador
         `);
 
       if (medioResult.recordset.length > 0) {
         medioPagoFinal = medioResult.recordset[0].identificador;
       }
+    }
+
+    if (!medioPagoFinal) {
+      return res.status(400).json({
+        error: "El ganador no posee un medio de pago verificado compatible para generar la venta",
+      });
     }
 
     await pool
@@ -1864,6 +2035,31 @@ app.post("/api/admin/auctions/:auctionId/items/:itemId/close", async (req, res) 
         UPDATE CatalogItems
         SET subastado = 'si', vendido = 'si'
         WHERE identificador = @itemId
+      `);
+
+    await pool
+      .request()
+      .input("producto", sql.Int, item.productoId)
+      .input("nuevoDuenio", sql.Int, ganador.cliente)
+      .query(`
+        UPDATE Products
+        SET duenio = @nuevoDuenio,
+            disponible = 'no'
+        WHERE identificador = @producto
+      `);
+
+    await pool
+      .request()
+      .input("medioPago", sql.Int, medioPagoFinal)
+      .input("importe", sql.Decimal(18, 2), Number(ganador.importe))
+      .query(`
+        UPDATE PaymentMethods
+        SET montoDisponible = CASE
+          WHEN tipo = 'cheque_certificado' AND montoDisponible IS NOT NULL
+            THEN montoDisponible - @importe
+          ELSE montoDisponible
+        END
+        WHERE identificador = @medioPago
       `);
 
     await pool
@@ -2108,7 +2304,7 @@ app.post("/api/fines/:fineId/pay", async (req, res) => {
   }
 });
 
-app.post("/api/admin/fines", async (req, res) => {
+app.post("/api/admin/fines", requireEmployee, async (req, res) => {
   try {
     const { clienteId, subastaId, monto } = req.body;
     const montoNumerico = Number(monto);

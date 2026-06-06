@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -35,6 +36,12 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
     private EditText edtEntidadFlujoPago;
     private EditText edtReferenciaFlujoPago;
     private EditText edtMontoChequeFlujoPago;
+    private LinearLayout panelDatosTarjeta;
+    private EditText edtNumeroTarjeta;
+    private EditText edtNombreTitularTarjeta;
+    private EditText edtApellidoTitularTarjeta;
+    private EditText edtVencimientoTarjeta;
+    private EditText edtCodigoSeguridadTarjeta;
     private Button btnGuardarFlujoPago;
     private Button btnVolverFlujoPago;
 
@@ -57,6 +64,12 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
         edtEntidadFlujoPago = findViewById(R.id.edtEntidadFlujoPago);
         edtReferenciaFlujoPago = findViewById(R.id.edtReferenciaFlujoPago);
         edtMontoChequeFlujoPago = findViewById(R.id.edtMontoChequeFlujoPago);
+        panelDatosTarjeta = findViewById(R.id.panelDatosTarjeta);
+        edtNumeroTarjeta = findViewById(R.id.edtNumeroTarjeta);
+        edtNombreTitularTarjeta = findViewById(R.id.edtNombreTitularTarjeta);
+        edtApellidoTitularTarjeta = findViewById(R.id.edtApellidoTitularTarjeta);
+        edtVencimientoTarjeta = findViewById(R.id.edtVencimientoTarjeta);
+        edtCodigoSeguridadTarjeta = findViewById(R.id.edtCodigoSeguridadTarjeta);
         btnGuardarFlujoPago = findViewById(R.id.btnGuardarFlujoPago);
         btnVolverFlujoPago = findViewById(R.id.btnVolverFlujoPago);
 
@@ -79,7 +92,7 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
         spMonedaFlujoPago.setAdapter(new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"Pesos", "Dólares"}
+                new String[]{"Pesos", "Dolares"}
         ));
 
         spExtranjeraFlujoPago.setAdapter(new ArrayAdapter<>(
@@ -91,23 +104,26 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
 
     private void configurarTextosPorTipo() {
         if (tipo.equals("tarjeta_credito")) {
-            txtTituloFlujoPago.setText("Tarjeta de crédito");
-            txtDescripcionFlujoPago.setText("Cargá el emisor y una referencia segura de la tarjeta. Queda pendiente de verificación.");
+            txtTituloFlujoPago.setText("Tarjeta de credito");
+            txtDescripcionFlujoPago.setText("Carga los datos habituales de la tarjeta. Queda pendiente de verificacion por la empresa.");
             edtEntidadFlujoPago.setHint("Emisor, por ejemplo Visa");
-            edtReferenciaFlujoPago.setHint("Últimos 4 dígitos o referencia segura");
+            edtReferenciaFlujoPago.setHint("Referencia interna opcional");
             edtMontoChequeFlujoPago.setVisibility(View.GONE);
+            panelDatosTarjeta.setVisibility(View.VISIBLE);
         } else if (tipo.equals("cheque_certificado")) {
             txtTituloFlujoPago.setText("Cheque certificado");
-            txtDescripcionFlujoPago.setText("Informá banco, número de cheque y monto certificado reservado para subastas.");
+            txtDescripcionFlujoPago.setText("Informa banco, numero de cheque y monto certificado reservado para subastas.");
             edtEntidadFlujoPago.setHint("Banco certificante");
-            edtReferenciaFlujoPago.setHint("Número de cheque certificado");
+            edtReferenciaFlujoPago.setHint("Numero de cheque certificado");
             edtMontoChequeFlujoPago.setVisibility(View.VISIBLE);
+            panelDatosTarjeta.setVisibility(View.GONE);
         } else {
             txtTituloFlujoPago.setText("Cuenta bancaria");
-            txtDescripcionFlujoPago.setText("Cargá banco y CBU/CVU o número de cuenta. Puede ser nacional o extranjera.");
+            txtDescripcionFlujoPago.setText("Carga banco y CBU/CVU o numero de cuenta. Puede ser nacional o extranjera.");
             edtEntidadFlujoPago.setHint("Banco");
-            edtReferenciaFlujoPago.setHint("CBU, CVU o número de cuenta");
+            edtReferenciaFlujoPago.setHint("CBU, CVU o numero de cuenta");
             edtMontoChequeFlujoPago.setVisibility(View.GONE);
+            panelDatosTarjeta.setVisibility(View.GONE);
         }
     }
 
@@ -116,13 +132,23 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
         String referencia = edtReferenciaFlujoPago.getText().toString().trim();
         String montoCheque = edtMontoChequeFlujoPago.getText().toString().trim();
 
-        if (entidad.isEmpty() || referencia.isEmpty()) {
-            txtMensajeFlujoPago.setText("Completá entidad y referencia.");
+        if (entidad.isEmpty()) {
+            mostrarErrorFormulario("Completa la entidad emisora o banco.");
+            return;
+        }
+
+        if (tipo.equals("tarjeta_credito")) {
+            referencia = validarYArmarReferenciaTarjeta(referencia);
+            if (referencia == null) {
+                return;
+            }
+        } else if (referencia.isEmpty()) {
+            mostrarErrorFormulario("Completa la referencia del medio de pago.");
             return;
         }
 
         if (tipo.equals("cheque_certificado") && montoCheque.isEmpty()) {
-            txtMensajeFlujoPago.setText("Informá el monto certificado.");
+            mostrarErrorFormulario("Informa el monto certificado del cheque.");
             return;
         }
 
@@ -131,6 +157,45 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
         txtMensajeFlujoPago.setText("");
 
         guardarMedioPago(entidad, referencia, montoCheque);
+    }
+
+    private String validarYArmarReferenciaTarjeta(String referenciaOpcional) {
+        String numero = edtNumeroTarjeta.getText().toString().trim().replace(" ", "");
+        String nombre = edtNombreTitularTarjeta.getText().toString().trim();
+        String apellido = edtApellidoTitularTarjeta.getText().toString().trim();
+        String vencimiento = edtVencimientoTarjeta.getText().toString().trim();
+        String codigo = edtCodigoSeguridadTarjeta.getText().toString().trim();
+
+        if (!numero.matches("\\d{13,19}")) {
+            mostrarErrorFormulario("Ingresa un numero de tarjeta valido, entre 13 y 19 digitos.");
+            return null;
+        }
+
+        if (nombre.isEmpty() || apellido.isEmpty()) {
+            mostrarErrorFormulario("Completa nombre y apellido del titular.");
+            return null;
+        }
+
+        if (!vencimiento.matches("\\d{2}/\\d{2}")) {
+            mostrarErrorFormulario("Ingresa el vencimiento con formato MM/AA.");
+            return null;
+        }
+
+        if (!codigo.matches("\\d{3,4}")) {
+            mostrarErrorFormulario("Ingresa el codigo de seguridad de 3 o 4 digitos.");
+            return null;
+        }
+
+        String referencia = "Tarjeta " + numero
+                + " | Titular " + nombre + " " + apellido
+                + " | Vence " + vencimiento
+                + " | CVV " + codigo;
+
+        if (!referenciaOpcional.isEmpty()) {
+            referencia += " | Ref " + referenciaOpcional;
+        }
+
+        return referencia.length() > 150 ? referencia.substring(0, 150) : referencia;
     }
 
     private void guardarMedioPago(String entidad, String referencia, String montoCheque) {
@@ -177,25 +242,30 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
                     btnGuardarFlujoPago.setText("Registrar medio");
 
                     if (statusCode == 201) {
-                        txtMensajeFlujoPago.setText(json.optString(
+                        String mensaje = json.optString(
                                 "mensaje",
-                                "Medio registrado. Queda pendiente de verificación."
-                        ));
+                                "Medio registrado. Queda pendiente de verificacion."
+                        );
+                        txtMensajeFlujoPago.setText(mensaje);
+                        FeedbackDialog.ok(PaymentMethodFormActivity.this, mensaje);
                         edtEntidadFlujoPago.setText("");
                         edtReferenciaFlujoPago.setText("");
                         edtMontoChequeFlujoPago.setText("");
+                        limpiarDatosTarjeta();
                     } else {
-                        txtMensajeFlujoPago.setText(json.optString(
+                        String mensaje = json.optString(
                                 "error",
                                 "No se pudo registrar el medio."
-                        ));
+                        );
+                        txtMensajeFlujoPago.setText(mensaje);
+                        FeedbackDialog.error(PaymentMethodFormActivity.this, mensaje);
                     }
                 });
             } catch (Exception e) {
                 mainHandler.post(() -> {
                     btnGuardarFlujoPago.setEnabled(true);
                     btnGuardarFlujoPago.setText("Registrar medio");
-                    txtMensajeFlujoPago.setText("No se pudo conectar con el servidor.");
+                    mostrarErrorFormulario("No se pudo conectar con el servidor. Revisa que el backend este encendido y que el celular use la misma red.");
                 });
             } finally {
                 if (connection != null) {
@@ -203,6 +273,19 @@ public class PaymentMethodFormActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void limpiarDatosTarjeta() {
+        edtNumeroTarjeta.setText("");
+        edtNombreTitularTarjeta.setText("");
+        edtApellidoTitularTarjeta.setText("");
+        edtVencimientoTarjeta.setText("");
+        edtCodigoSeguridadTarjeta.setText("");
+    }
+
+    private void mostrarErrorFormulario(String mensaje) {
+        txtMensajeFlujoPago.setText(mensaje);
+        FeedbackDialog.error(this, mensaje);
     }
 
     private String leerRespuesta(InputStream inputStream) throws Exception {

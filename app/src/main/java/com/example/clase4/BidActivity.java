@@ -1,16 +1,22 @@
 package com.example.clase4;
 
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -28,6 +34,7 @@ public class BidActivity extends AppCompatActivity {
     private TextView txtDatosItem;
     private TextView txtRangoPuja;
     private TextView txtMensajePuja;
+    private ImageView imgLotePuja;
     private EditText edtImportePuja;
     private Button btnEnviarPuja;
     private Button btnVolverDetalle;
@@ -35,6 +42,7 @@ public class BidActivity extends AppCompatActivity {
     private int userId;
     private int auctionId;
     private int itemId;
+    private int productId;
 
     private String descripcion;
     private String categoriaSubasta;
@@ -60,6 +68,7 @@ public class BidActivity extends AppCompatActivity {
         txtDatosItem = findViewById(R.id.txtDatosItem);
         txtRangoPuja = findViewById(R.id.txtRangoPuja);
         txtMensajePuja = findViewById(R.id.txtMensajePuja);
+        imgLotePuja = findViewById(R.id.imgLotePuja);
         edtImportePuja = findViewById(R.id.edtImportePuja);
         btnEnviarPuja = findViewById(R.id.btnEnviarPuja);
         btnVolverDetalle = findViewById(R.id.btnVolverDetalle);
@@ -69,6 +78,7 @@ public class BidActivity extends AppCompatActivity {
 
         auctionId = getIntent().getIntExtra("auctionId", 0);
         itemId = getIntent().getIntExtra("itemId", 0);
+        productId = getIntent().getIntExtra("productId", 0);
         descripcion = getIntent().getStringExtra("descripcion");
         categoriaSubasta = getIntent().getStringExtra("categoria");
         if (categoriaSubasta == null) {
@@ -78,6 +88,7 @@ public class BidActivity extends AppCompatActivity {
         mejorOferta = getIntent().getDoubleExtra("mejorOferta", 0);
 
         mostrarDatosItem();
+        cargarFotoProducto();
 
         btnEnviarPuja.setOnClickListener(v -> validarYEnviarPuja());
 
@@ -225,6 +236,51 @@ public class BidActivity extends AppCompatActivity {
                     txtMensajePuja.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
                     txtMensajePuja.setText("No se pudo conectar con el servidor.");
                 });
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        });
+    }
+
+    private void cargarFotoProducto() {
+        if (productId <= 0) {
+            return;
+        }
+
+        executor.execute(() -> {
+            HttpURLConnection connection = null;
+
+            try {
+                URL url = new URL(ApiConfig.BASE_URL + "/api/products/" + productId + "/photos");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("Accept", "application/json");
+
+                int statusCode = connection.getResponseCode();
+                if (statusCode != 200) {
+                    return;
+                }
+
+                String respuesta = leerRespuesta(connection.getInputStream());
+                JSONArray fotos = new JSONArray(respuesta);
+                if (fotos.length() == 0) {
+                    return;
+                }
+
+                String fotoBase64 = fotos.getJSONObject(0).optString("fotoBase64", "");
+                byte[] bytes = Base64.decode(fotoBase64, Base64.DEFAULT);
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (bitmap == null) {
+                    return;
+                }
+
+                mainHandler.post(() -> {
+                    imgLotePuja.setImageBitmap(bitmap);
+                    imgLotePuja.setVisibility(View.VISIBLE);
+                });
+            } catch (Exception ignored) {
             } finally {
                 if (connection != null) {
                     connection.disconnect();

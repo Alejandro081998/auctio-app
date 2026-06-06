@@ -83,9 +83,12 @@ public class HomeActivity extends AppCompatActivity {
         String nombre = preferences.getString("nombre", "");
         String apellido = preferences.getString("apellido", "");
         String categoria = preferences.getString("categoria", "");
+        boolean esAdmin = preferences.getBoolean("esAdmin", false);
 
         txtBienvenida.setText("Bienvenido, " + nombre + " " + apellido);
         txtCategoria.setText("Categoría: " + categoria);
+
+        btnAdmin.setVisibility(esAdmin ? View.VISIBLE : View.GONE);
 
         btnActualizarSubastas.setOnClickListener(v -> cargarSubastas());
 

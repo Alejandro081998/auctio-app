@@ -294,6 +294,20 @@ paths:
         "200":
           description: Solicitudes propias
 
+  /api/products/{productId}/photos:
+    get:
+      tags: [Consignacion]
+      summary: Fotos cargadas de un producto
+      description: Devuelve las fotos en base64 para que el front pueda mostrar imagenes reales del catalogo.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Fotos del producto
+
   /api/clients/{clientId}/history:
     get:
       tags: [Usuarios]

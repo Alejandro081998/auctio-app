@@ -1,11 +1,15 @@
 package com.example.clase4;
 
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -294,6 +298,7 @@ public class AuctionDetailActivity extends AppCompatActivity {
                 JSONObject item = catalogo.getJSONObject(i);
 
                 int itemId = item.getInt("itemId");
+                int productId = item.optInt("productoId", 0);
                 String descripcionCatalogo = item.optString("descripcionCatalogo", "-");
                 String descripcionCompleta = item.optString("descripcionCompleta", "-");
                 String historia = item.optString("historia", "");
@@ -305,6 +310,7 @@ public class AuctionDetailActivity extends AppCompatActivity {
 
                 View card = crearCardCatalogo(
                         itemId,
+                        productId,
                         descripcionCatalogo,
                         descripcionCompleta,
                         historia,
@@ -325,6 +331,7 @@ public class AuctionDetailActivity extends AppCompatActivity {
 
     private View crearCardCatalogo(
             int itemId,
+            int productId,
             String descripcionCatalogo,
             String descripcionCompleta,
             String historia,
@@ -402,6 +409,23 @@ public class AuctionDetailActivity extends AppCompatActivity {
         visual.addView(status);
         visual.addView(title);
         visual.addView(subtitle);
+
+        ImageView fotoProducto = new ImageView(this);
+        fotoProducto.setVisibility(View.VISIBLE);
+        fotoProducto.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        fotoProducto.setBackgroundColor(Color.parseColor("#E2E8F0"));
+        fotoProducto.setImageResource(R.drawable.logo);
+
+        LinearLayout.LayoutParams fotoParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(180)
+        );
+        fotoParams.setMargins(0, dp(14), 0, 0);
+        fotoProducto.setLayoutParams(fotoParams);
+
+        if (productId > 0) {
+            cargarFotoProducto(productId, fotoProducto);
+        }
 
         // DESCRIPCIÓN
         TextView descripcion = new TextView(this);
@@ -539,6 +563,7 @@ public class AuctionDetailActivity extends AppCompatActivity {
                 intent.putExtra("auctionId", auctionId);
                 intent.putExtra("itemId", itemId);
                 intent.putExtra("descripcion", descripcionCatalogo);
+                intent.putExtra("productId", productId);
                 intent.putExtra("precioBase", precioBase);
                 intent.putExtra("mejorOferta", mejorOferta);
                 intent.putExtra("categoria", categoriaSubasta);
@@ -563,6 +588,7 @@ public class AuctionDetailActivity extends AppCompatActivity {
         btnPujar.setLayoutParams(btnParams);
 
         card.addView(visual);
+        card.addView(fotoProducto);
         card.addView(descripcion);
         card.addView(metricsRow);
         card.addView(infoPanel);
@@ -570,6 +596,47 @@ public class AuctionDetailActivity extends AppCompatActivity {
         card.addView(btnPujar);
 
         return card;
+    }
+
+    private void cargarFotoProducto(int productId, ImageView imageView) {
+        executor.execute(() -> {
+            HttpURLConnection connection = null;
+
+            try {
+                URL url = new URL(ApiConfig.BASE_URL + "/api/products/" + productId + "/photos");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("Accept", "application/json");
+
+                int statusCode = connection.getResponseCode();
+                if (statusCode != 200) {
+                    return;
+                }
+
+                String respuesta = leerRespuesta(connection.getInputStream());
+                JSONArray fotos = new JSONArray(respuesta);
+                if (fotos.length() == 0) {
+                    return;
+                }
+
+                String base64 = fotos.getJSONObject(0).optString("fotoBase64", "");
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (bitmap == null) {
+                    return;
+                }
+
+                mainHandler.post(() -> {
+                    imageView.setImageBitmap(bitmap);
+                    imageView.setVisibility(View.VISIBLE);
+                });
+            } catch (Exception ignored) {
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        });
     }
     private String leerRespuesta(InputStream inputStream) throws Exception {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));

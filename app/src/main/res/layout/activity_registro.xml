@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/auct_bg_light"
+    android:background="#F3F0E8"
     android:fillViewport="true">
 
     <LinearLayout
@@ -15,7 +15,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Registro de postor"
-            android:textColor="@color/auct_navy"
+            android:letterSpacing="0.04"
+            android:textColor="#071827"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -23,8 +24,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Paso 1: cargá tus datos y documentación. La empresa revisa la solicitud antes de habilitar la clave."
-            android:textColor="@color/auct_gray_text"
+            android:text="Paso 1: cargÃ¡ tus datos y documentaciÃ³n. La empresa revisa la solicitud antes de habilitar la clave."
+            android:textColor="#64748B"
             android:textSize="15sp" />
 
         <LinearLayout
@@ -37,7 +38,7 @@
             <TextView
                 android:layout_width="34dp"
                 android:layout_height="34dp"
-                android:background="@color/auct_navy"
+                android:background="@drawable/bg_button_dark"
                 android:gravity="center"
                 android:text="1"
                 android:textColor="#FFFFFF"
@@ -54,7 +55,7 @@
                 android:background="#E2E8F0"
                 android:gravity="center"
                 android:text="2"
-                android:textColor="@color/auct_navy"
+                android:textColor="#071827"
                 android:textStyle="bold" />
 
             <View
@@ -68,7 +69,7 @@
                 android:background="#E2E8F0"
                 android:gravity="center"
                 android:text="3"
-                android:textColor="@color/auct_navy"
+                android:textColor="#071827"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -77,7 +78,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="Datos personales"
-            android:textColor="@color/auct_navy"
+            android:letterSpacing="0.04"
+            android:textColor="#071827"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -86,7 +88,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="14dp"
-            android:background="@android:drawable/editbox_background"
+            android:background="@drawable/bg_input_premium"
             android:hint="DNI o pasaporte"
             android:inputType="number"
             android:padding="12dp" />
@@ -96,7 +98,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
+            android:background="@drawable/bg_input_premium"
             android:hint="Nombre"
             android:padding="12dp" />
 
@@ -105,7 +107,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
+            android:background="@drawable/bg_input_premium"
             android:hint="Apellido"
             android:padding="12dp" />
 
@@ -114,7 +116,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
+            android:background="@drawable/bg_input_premium"
             android:hint="Domicilio legal"
             android:padding="12dp" />
 
@@ -123,7 +125,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
+            android:background="@drawable/bg_input_premium"
             android:hint="Email"
             android:inputType="textEmailAddress"
             android:padding="12dp" />
@@ -133,19 +135,17 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
-            android:hint="Teléfono"
+            android:background="@drawable/bg_input_premium"
+            android:hint="TelÃ©fono"
             android:inputType="phone"
             android:padding="12dp" />
 
-        <EditText
+        <Spinner
             android:id="@+id/etPais"
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="12dp"
-            android:background="@android:drawable/editbox_background"
-            android:hint="Código de país, por ejemplo 32"
-            android:inputType="number"
+            android:background="@drawable/bg_input_premium"
             android:padding="12dp" />
 
         <TextView
@@ -153,7 +153,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:text="Fotos del documento: frente y dorso"
-            android:textColor="@color/auct_gray_text"
+            android:textColor="#64748B"
             android:textSize="13sp" />
 
         <Button
@@ -161,9 +161,9 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="#E2E8F0"
+            android:background="@drawable/bg_button_outline"
             android:text="Seleccionar frente del DNI"
-            android:textColor="@color/auct_navy"
+            android:textColor="#071827"
             android:textStyle="bold" />
 
         <TextView
@@ -172,7 +172,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Frente pendiente"
-            android:textColor="@color/auct_gray_text"
+            android:textColor="#64748B"
             android:textSize="13sp" />
 
         <Button
@@ -180,9 +180,9 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="#E2E8F0"
+            android:background="@drawable/bg_button_outline"
             android:text="Seleccionar dorso del DNI"
-            android:textColor="@color/auct_navy"
+            android:textColor="#071827"
             android:textStyle="bold" />
 
         <TextView
@@ -191,7 +191,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Dorso pendiente"
-            android:textColor="@color/auct_gray_text"
+            android:textColor="#64748B"
             android:textSize="13sp" />
 
         <Button
@@ -199,7 +199,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="22dp"
-            android:backgroundTint="@color/auct_navy"
+            android:background="@drawable/bg_button_dark"
             android:text="Enviar solicitud"
             android:textColor="#FFFFFF"
             android:textStyle="bold" />
@@ -218,7 +218,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
-            android:background="#FFFFFF"
+            android:background="@drawable/bg_card_premium"
             android:elevation="3dp"
             android:orientation="vertical"
             android:padding="18dp">
@@ -227,7 +227,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Paso 3: generar clave"
-                android:textColor="@color/auct_navy"
+                android:textColor="#071827"
                 android:textSize="19sp"
                 android:textStyle="bold" />
 
@@ -235,8 +235,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="Usá este bloque cuando la empresa ya aprobó tu solicitud y te asignó categoría."
-                android:textColor="@color/auct_gray_text"
+                android:text="UsÃ¡ este bloque cuando la empresa ya aprobÃ³ tu solicitud y te asignÃ³ categorÃ­a."
+                android:textColor="#64748B"
                 android:textSize="14sp" />
 
             <EditText
@@ -244,7 +244,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="14dp"
-                android:background="@android:drawable/editbox_background"
+                android:background="@drawable/bg_input_premium"
                 android:hint="DNI o pasaporte aprobado"
                 android:inputType="number"
                 android:padding="12dp" />
@@ -254,7 +254,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="12dp"
-                android:background="@android:drawable/editbox_background"
+                android:background="@drawable/bg_input_premium"
                 android:hint="Clave personal"
                 android:inputType="textPassword"
                 android:padding="12dp" />
@@ -264,9 +264,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginTop="18dp"
-                android:backgroundTint="@color/auct_gold"
+                android:background="@drawable/bg_button_gold"
                 android:text="Generar clave"
-                android:textColor="@color/auct_navy"
+                android:textColor="#071827"
                 android:textStyle="bold" />
 
             <TextView
@@ -282,3 +282,4 @@
 
     </LinearLayout>
 </ScrollView>
+
